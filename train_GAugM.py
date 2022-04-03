@@ -6,10 +6,7 @@ import argparse
 import numpy as np
 import scipy.sparse as sp
 import torch
-from models.GCN_dgl import GCN
-from models.GAT_dgl import GAT
-from models.GSAGE_dgl import GraphSAGE
-from models.JKNet_dgl import JKNet
+from models.GCN_AugM import GCN
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='single')
@@ -52,4 +49,3 @@ if __name__ == "__main__":
         counter += 1 
         print (f'Range {counter} finished')
     print(f'\nMicro F1: mean test acc: {np.mean(accs):.6f}, std test acc: {np.std(accs):.6f}, best vali acc: {np.max(best_vali_accs):.6f}')
-
