@@ -2,7 +2,10 @@
 # McMaster Computing and Software Dept. 
 # CAS 781 Class
 # Team name: JLY
-# Member: Jongjun Park / Liuyin Shi / Yihang Xu
+# Member: 
+# Jongjun Park: VGAE
+# Liuyin Shi: GAugO with GCN networks
+# Yihang Xu: GAigM with GCN networks
 # Paper: Data Augmentation for Graph Neural Networks (https://arxiv.org/pdf/2006.06830.pdf)
 ##############################################################################################
 
