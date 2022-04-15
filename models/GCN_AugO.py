@@ -29,12 +29,11 @@ def sp2tensor(sp_matrix):
 
 
 class AugO(object):
-    def __init__(self, adj_matrix, features, labels, tvt_nids, cuda=-1, hidden_size=128, emb_size=32, n_layers=1, epochs=200, seed=-1, lr=1e-2, weight_decay=5e-4, dropout=0.5, beta=0.5, temperature=0.2, log=True, name='debug', warmup=3, gnnlayer_type='gcn', jknet=False,  feat_norm='row'):
+    def __init__(self, adj_matrix, features, labels, tvt_nids, cuda=-1, hidden_size=128, emb_size=32, n_layers=1, epochs=200, seed=-1, lr=1e-2, weight_decay=5e-4, dropout=0.5, beta=0.5, temperature=0.2, log=True, name='debug',  gnnlayer_type='gcn', jknet=False,  feat_norm='row'):
         self.lr = lr
         self.weight_decay = weight_decay
         self.n_epochs = epochs
         self.beta = beta
-        self.warmup = warmup
         self.feat_norm = feat_norm
         if not torch.cuda.is_available():
             cuda = -1
