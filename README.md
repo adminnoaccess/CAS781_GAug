@@ -11,7 +11,7 @@
 The dataset is saved in 'pickle' python binary type. 
 
 # Model
-### 1. model/VGAE_edge_prob.py
+## 1. model/VGAE_edge_prob.py
  
  Description: Before applying GAugM or GAugO, we need to calculate the edge probability of
 	original graph. In this paper, they used Variational Graph Auto-Encoder (VGAE) to 
@@ -33,7 +33,7 @@ To get a appropriate edge probability, we need to train the VGAE before applying
 	setting the device as 'cuda'. To draw the losses and average precision on each iteration,
 	this function also returns them. Using the example, you can draw the statistics. 
 
-### 2. model/GCN_AugO.py
+## 2. model/GCN_AugO.py
  
  Description: This is the main file for the AugO model. We use a master class GAugO class, which encapsulate the actual AugO model according to the pytroch programming practice. Within the Model class,
 we also have 2 separate node classfication network and edge prediction network.
