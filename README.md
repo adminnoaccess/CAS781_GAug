@@ -7,16 +7,11 @@
 # Liuyin Shi: GAugO with GCN networks
 # Yihang Xu: GAigM with GCN networks
 # Paper: Data Augmentation for Graph Neural Networks (https://arxiv.org/pdf/2006.06830.pdf)
-##############################################################################################
 
-##############################################################################################
 ## Dataset
 The dataset is saved in 'pickle' python binary type. 
-##############################################################################################
 
-##############################################################################################
-## model
-##############################################################################################
+## Model
 # 1. model/VGAE_edge_prob.py
  
  Description: Before applying GAugM or GAugO, we need to calculate the edge probability of
@@ -59,9 +54,7 @@ we also have 2 separate node classfication network and edge prediction network.
  practice. Here all the model parameteres are intialized and the model workflow is constructed
 
  
-##############################################################################################
 ## Test file
-##############################################################################################
 # 1. test_ep.py
 
  Description: Simply, this code load the 'CORA' dataset (you can change the file name to load
