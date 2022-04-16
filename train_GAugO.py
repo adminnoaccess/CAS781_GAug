@@ -1,31 +1,19 @@
 from models.GCN_AugO import *
-import gc
-import copy
-import time
 import pickle
-import argparse
-import os
 import json
 import numpy as np
 import scipy.sparse as sp
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import dgl
-import dgl.function as fn
-import collections
 from sklearn.metrics import f1_score
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='single')
-    parser.add_argument('--gpu', type=str, default='1')
-    args = parser.parse_args()
 
-    if args.gpu == '-1':
+
+    if not torch.cuda.is_available():
         gpu = -1
     else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
         gpu = 0
+
 
     tvt_nids = pickle.load(open(f'data/cora_tvt_nids.pkl', 'rb'))
     adj_orig = pickle.load(open(f'data/cora_adj.pkl', 'rb'))
@@ -39,14 +27,11 @@ if __name__ == "__main__":
     params_all = json.load(open('best_parameters.json', 'r'))
     params = params_all['GAugO']['cora']['gcn']
 
-    gnn = 'gcn'
-    layer_type = 'gcn'
-    feat_norm = 'row'
     lr =  0.01
     n_layers = 1
     accs = []
     for _ in range(50):
-        model = AugO(adj_orig, features, labels, tvt_nids, cuda=gpu,  beta=params['beta'], temperature=params['temp'],  lr=lr, n_layers=n_layers, log=True, feat_norm=feat_norm)
+        model = AugO(adj_orig, features, labels, tvt_nids, cuda=gpu,  beta=params['beta'], temperature=params['temp'],  lr=lr, n_layers=n_layers, log=True, feat_norm='row')
         acc = model.fit(160, 30)
         accs.append(acc)
     print(f'Micro F1: {np.mean(accs):.6f}, std: {np.std(accs):.6f}')
