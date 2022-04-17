@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pyro
-from itertools import combinations
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 
@@ -20,11 +19,11 @@ def sp2tensor(sp_matrix):
         sp_matrix = sp_matrix.tocoo()
         
     # print(type(sp_matrixs))
-    coords = np.vstack((sp_matrix.row, sp_matrix.col)).transpose()
+    cods = np.vstack((sp_matrix.row, sp_matrix.col)).transpose()
     values = sp_matrix.data
     shape = sp_matrix.shape
     
-    result = torch.sparse.FloatTensor(torch.LongTensor(coords.T),torch.FloatTensor(values),torch.Size(shape))
+    result = torch.sparse.FloatTensor(torch.LongTensor(cods.T),torch.FloatTensor(values),torch.Size(shape))
     return result       
 
 
@@ -62,6 +61,7 @@ class AugO(object):
     def load_data(self, adj_matrix, features, labels, tvt_nids):
 
 
+        # normialize the preprocess the features 
         if isinstance(features, torch.FloatTensor):
             self.features = features
         else:
@@ -69,19 +69,22 @@ class AugO(object):
         if self.feat_norm == 'row':
             self.features = F.normalize(self.features, p=1, dim=1)
         elif self.feat_norm == 'col':
+            # print('ssssss')
             self.features = self.col_normalization(self.features)
         
-        # preprocessing
+        # preprocessing for converting to coo format of the data
         assert sp.issparse(adj_matrix)
         if not isinstance(adj_matrix, sp.coo_matrix):
             adj_matrix = sp.coo_matrix(adj_matrix)
+            
         adj_matrix.setdiag(1)
         self.adj_original = sp2tensor(adj_matrix).to_dense()
         
-        # normalized adj_matrix used as input for ep_net (torch.sparse.FloatTensor)
+        # normalized adj_matrix used as input 
         degrees = np.array(adj_matrix.sum(1))
-        degree_mat_inv_sqrt = sp.diags(np.power(degrees, -0.5).flatten())
-        adj_norm = degree_mat_inv_sqrt @ adj_matrix @ degree_mat_inv_sqrt
+        degree_inverted_sqrt = sp.diags(np.power(degrees, -0.5).flatten())
+        
+        adj_norm = degree_inverted_sqrt @ adj_matrix @ degree_inverted_sqrt
         self.adj_norm = sp2tensor(adj_norm)
         # adj_matrix used as input for nc_net (torch.sparse.FloatTensor)
         
@@ -96,19 +99,20 @@ class AugO(object):
         self.train_nid = tvt_nids[0]
         self.val_nid = tvt_nids[1]
         self.test_nid = tvt_nids[2]
+        
         # number of classes
         if len(self.labels.size()) == 1:
             self.out_size = len(torch.unique(self.labels))
         else:
             self.out_size = labels.size(1)
-        # sample the edges to evaluate edge prediction results
-        # sample 10% (1% for large graph) of the edges and the same number of no-edges
-        if labels.size(0) > 5000:
-            edge_frac = 0.01
+            
+        if labels.size(0) > 3000:
+            edge_frac = 0.02
         else:
-            edge_frac = 0.1
+            edge_frac = 0.2
         adj_matrix = sp.csr_matrix(adj_matrix)
         n_edges_sample = int(edge_frac * adj_matrix.nnz / 2)
+        
         # sample negative edges
         neg_edges = []
         added_edges = set()
@@ -125,6 +129,7 @@ class AugO(object):
             added_edges.add((i, j))
             added_edges.add((j, i))
         neg_edges = np.asarray(neg_edges)
+        
         # sample positive edges
         nz_upper = np.array(sp.triu(adj_matrix, k=1).nonzero()).T
         np.random.shuffle(nz_upper)
@@ -148,8 +153,8 @@ class AugO(object):
             
             model.eval()
             adj_pred = torch.sigmoid(adj_logits.detach()).cpu()            
-            ep_auc, ep_ap = self.eval_edge_pred(adj_pred, self.val_edges, self.edge_labels)
-            print('EPNet pretrain, Epoch [{:3}/{}]: loss {:.4f}, auc {:.4f}, ap {:.4f}'
+            ep_auc, ep_ap = self.eval_edge_prediction(adj_pred, self.val_edges, self.edge_labels)
+            print('Edge Pred Net training, Epoch [{:3}/{}]: loss {:.4f}, auccuracy {:.4f}, average precision {:.4f}'
                         .format(epoch+1, n_epochs, loss.item(), ep_auc, ep_ap))
 
     def trainNodeNet(self, model, adj, features, labels, n_epochs):
@@ -175,14 +180,15 @@ class AugO(object):
             model.eval()
             with torch.no_grad():
                 nc_logits_eval = model.nodeClassifNet(adj, features)
-            val_acc = self.eval_node_cls(nc_logits_eval[self.val_nid], labels[self.val_nid])
+                
+            val_acc = self.eval_node_lassification(nc_logits_eval[self.val_nid], labels[self.val_nid])
             if val_acc > max_acc:
                 max_acc = val_acc
-                test_acc = self.eval_node_cls(nc_logits_eval[self.test_nid], labels[self.test_nid])
-                print('NCNet pretrain, Epoch [{:2}/{}]: loss {:.4f}, val acc {:.4f}, test acc {:.4f}'
+                test_acc = self.eval_node_lassification(nc_logits_eval[self.test_nid], labels[self.test_nid])
+                print('Node Classification training, Epoch [{:2}/{}]: loss {:.4f}, val acc {:.4f}, test acc {:.4f}'
                             .format(epoch+1, n_epochs, loss.item(), val_acc, test_acc))
             else:
-                print('NCNet pretrain, Epoch [{:2}/{}]: loss {:.4f}, val acc {:.4f}'
+                print('Node classfication training, Epoch [{:2}/{}]: loss {:.4f}, val acc {:.4f}'
                             .format(epoch+1, n_epochs, loss.item(), val_acc))
             
         
@@ -249,14 +255,14 @@ class AugO(object):
             model.eval()
             with torch.no_grad():
                 nc_logits_eval = model.nodeClassifNet(adj, features)
-            val_acc = self.eval_node_cls(nc_logits_eval[self.val_nid], labels[self.val_nid])
+            val_acc = self.eval_node_lassification(nc_logits_eval[self.val_nid], labels[self.val_nid])
             adj_pred = torch.sigmoid(adj_logits.detach()).cpu()
-            ep_auc, ep_ap = self.eval_edge_pred(adj_pred, self.val_edges, self.edge_labels)
+            ep_auc, ep_ap = self.eval_edge_prediction(adj_pred, self.val_edges, self.edge_labels)
             if val_acc > max_acc:
                 
                 earlystop_counter = 0
                 max_acc = val_acc
-                test_acc = self.eval_node_cls(nc_logits_eval[self.test_nid], labels[self.test_nid])
+                test_acc = self.eval_node_lassification(nc_logits_eval[self.test_nid], labels[self.test_nid])
                 print('Epoch [{:3}/{}]: ep loss {:.4f}, nc loss {:.4f}, ep auc: {:.4f}, ep ap {:.4f}, val acc {:.4f}, test acc {:.4f}'
                             .format(i+1, self.n_epochs, ep_loss.item(), nc_loss.item(), ep_auc, ep_ap, val_acc, test_acc))
                 
@@ -272,7 +278,7 @@ class AugO(object):
         # get final test result without early stop
         with torch.no_grad():
             nc_logits_eval = model.nodeClassifNet(adj, features)
-        test_acc_final = self.eval_node_cls(nc_logits_eval[self.test_nid], labels[self.test_nid])
+        test_acc_final = self.eval_node_lassification(nc_logits_eval[self.test_nid], labels[self.test_nid])
 
         # log both results
         print('Final test acc with early stop: {:.4f}, without early stop: {:.4f}'
@@ -285,8 +291,8 @@ class AugO(object):
 
 
 
-    @staticmethod
-    def eval_edge_pred(adj_pred, val_edges, edge_labels):
+
+    def eval_edge_prediction(self,adj_pred, val_edges, edge_labels):
         logits = adj_pred[val_edges.T]
         logits = np.nan_to_num(logits)
         roc_auc = roc_auc_score(edge_labels, logits)
@@ -296,13 +302,12 @@ class AugO(object):
      
     
 
-    @staticmethod
-    def eval_node_cls(nc_logits, labels):
-        """ evaluate node classification results """
+
+    def eval_node_lassification(self,nc_logits, labels):
+        
         if len(labels.size()) == 2:
             preds = torch.round(torch.sigmoid(nc_logits))
             tp = len(torch.nonzero(preds * labels))
-            tn = len(torch.nonzero((1-preds) * (1-labels)))
             fp = len(torch.nonzero(preds * (1-labels)))
             fn = len(torch.nonzero((1-preds) * labels))
             pre, rec, f1 = 0., 0., 0.
@@ -311,20 +316,22 @@ class AugO(object):
             if tp+fn > 0:
                 rec = tp / (tp + fn)
             if pre+rec > 0:
-                fmeasure = (2 * pre * rec) / (pre + rec)
+                evals = (2 * pre * rec) / (pre + rec)
         else:
-            preds = torch.argmax(nc_logits, dim=1)
-            correct = torch.sum(preds == labels)
-            fmeasure = correct.item() / len(labels)
-        return fmeasure
+            
+            predictions = torch.argmax(nc_logits, dim=1)
+            correct = torch.sum(predictions == labels)
+            
+            evals = correct.item() / len(labels)
+        return evals
     
 
 
 
 
 
-    @staticmethod
-    def col_normalization(features):
+   
+    def col_normalization(self,features):
         
         features = features.numpy()        
         meanval = features.mean(axis=0)
@@ -480,9 +487,8 @@ class VGAE(nn.Module):  # edge probability calculation using GCN
 
 
 
-
+# embed 2 net's optmizer together for steping during the training
 class MultipleOptimizer():
-    """ a class that wraps multiple optimizers """
     def __init__(self, *op):
         self.optimizers = op
 

@@ -5,6 +5,7 @@ import numpy as np
 import scipy.sparse as sp
 import torch
 from sklearn.metrics import f1_score
+import time
 
 if __name__ == "__main__":
 
@@ -31,8 +32,12 @@ if __name__ == "__main__":
     n_layers = 1
     accs = []
     for _ in range(50):
+        start_time = time.time()
         model = AugO(adj_orig, features, labels, tvt_nids, cuda=gpu,  beta=params['beta'], temperature=params['temp'],  lr=lr, n_layers=n_layers, log=True, feat_norm='row')
         acc = model.fit(160, 30)
         accs.append(acc)
-    print(f'Micro F1: {np.mean(accs):.6f}, std: {np.std(accs):.6f}')
+        end_time = time.time()
+        
+        print(f'F1: {np.mean(accs):.6f}, std: {np.std(accs):.6f}')
+        print('Time Eplased in Seconds: '+str(end_time=start_time))
 
