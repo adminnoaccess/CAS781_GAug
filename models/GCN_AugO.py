@@ -28,7 +28,7 @@ def sp2tensor(sp_matrix):
 
 
 class AugO(object):
-    def __init__(self, adj_matrix, features, labels, tvt_nids, cuda=-1, hidden_size=128, emb_size=32, n_layers=1, epochs=200, seed=-1, lr=1e-2, weight_decay=5e-4, dropout=0.5, beta=0.5, temperature=0.2, log=True, name='debug',  gnnlayer_type='gcn', jknet=False,  feat_norm='row'):
+    def __init__(self, adj_matrix, features, labels, tvt_data, cuda=-1, hidden_size=128, emb_size=32, n_layers=1, epochs=200, seed=-1, lr=1e-2, weight_decay=5e-4, dropout=0.5, beta=0.5, temperature=0.2, log=True, name='debug',  gnnlayer_type='gcn', jknet=False,  feat_norm='row'):
         self.lr = lr
         self.weight_decay = weight_decay
         self.n_epochs = epochs
@@ -45,7 +45,7 @@ class AugO(object):
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
             
-        self.load_data(adj_matrix, features, labels, tvt_nids)
+        self.load(adj_matrix, features, labels, tvt_data)
         self.model = Model(self.features.size(1),
                                 hidden_size,
                                 emb_size,
@@ -58,7 +58,7 @@ class AugO(object):
                                 )
         
 
-    def load_data(self, adj_matrix, features, labels, tvt_nids):
+    def load(self, adj_matrix, features, labels, tvt_data):
 
 
         # normialize the preprocess the features 
@@ -96,11 +96,11 @@ class AugO(object):
         else:
             labels = torch.LongTensor(labels)
         self.labels = labels
-        self.train_nid = tvt_nids[0]
-        self.val_nid = tvt_nids[1]
-        self.test_nid = tvt_nids[2]
+        self.train_nid = tvt_data[0]
+        self.val_nid = tvt_data[1]
+        self.test_nid = tvt_data[2]
         
-        # number of classes
+        # number of classes for evaluation based on the size of graph
         if len(self.labels.size()) == 1:
             self.out_size = len(torch.unique(self.labels))
         else:
@@ -125,6 +125,7 @@ class AugO(object):
                 continue
             if (i, j) in added_edges:
                 continue
+            
             neg_edges.append([i, j])
             added_edges.add((i, j))
             added_edges.add((j, i))
