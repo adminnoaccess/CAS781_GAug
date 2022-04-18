@@ -12,7 +12,7 @@ import collections
 from sklearn.metrics import f1_score
 
 class GCN(object):
-    def __init__(self, adj_orig, A_pred, features, labels, tvt_nids, add, rm, cuda, hidden_size=128, num_layers=1, epochs=200, seed=-1, lr=1e-2, weight_decay=5e-4, dropout=0.5, print_progress=True):
+    def __init__(self, adj_orig, A_pred, features, labels, tvt_nids, add, rm, cuda, hidden_size=128, num_layers=1, epochs=200, seed=-1, lr=0.01, weight_decay=5e-4, dropout=0.5, print_progress=True):
         self.t = time.time()
         self.lr = lr
         self.weight_decay = weight_decay
