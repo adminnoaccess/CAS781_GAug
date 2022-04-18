@@ -6,20 +6,19 @@ import scipy.sparse as sp
 import torch
 from models.GCN_AugM import GCN
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='single')
-    parser.add_argument('--dataset', type=str, default='cora')
-    parser.add_argument('--epochs', type=str, default='200')
-    parser.add_argument('--gpu', type=str, default='0')
-    parser.add_argument('--i', type=str, default='2')
-    args = parser.parse_args()
+parser = argparse.ArgumentParser(description='single')
+parser.add_argument('--dataset', type=str, default='cora')
+parser.add_argument('--epochs', type=str, default='200')
+parser.add_argument('--gpu', type=str, default='0')
+parser.add_argument('--i', type=str, default='2')
+args = parser.parse_args()
 
+if __name__ == "__main__":
     epochs = int(args.epochs)
 
     if args.gpu == '-1':
         gpu_avail = -1
     else:
-        # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
         gpu_avail = 0
 
     tvt_nids = pickle.load(open(f'data/graphs/{args.dataset}_tvt_nids.pkl', 'rb'))
@@ -41,7 +40,7 @@ if __name__ == "__main__":
     times = []
     # best_logits = []
     counter = 0 #
-    for _ in range(10):
+    for _ in range(30):
         gnn = GCN(adj_orig, A_pred, features, labels, tvt_nids, rm = params['rm_pct'], add = params['add_pct'], print_progress=True, cuda=gpu_avail, epochs=epochs)
         acc, best_vali_acc, best_logit, time = gnn.fit()
         accs.append(acc)
