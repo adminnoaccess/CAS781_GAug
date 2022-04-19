@@ -1,4 +1,6 @@
 import gc
+import copy
+import time
 import numpy as np
 import scipy.sparse as sp
 import torch
@@ -6,18 +8,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 import dgl
 import dgl.function as fn
-import copy
-import time
 
 from sklearn.metrics import f1_score
-from models.VGAE_edge_prob import *
 
-class AugM_GCN(object):
-    def __init__(self, adj, A_pred, features, labels, tvt_nids, add, rm, cuda, hidden_dim=128, num_layers=1, epochs=200, lr=0.01, weight_decay=5e-4, dropout=0.5):
+class GCN(object):
+    def __init__(self, adj_orig, A_pred, features, labels, tvt_nids, add, rm, cuda, hidden_size=128, num_layers=1, epochs=200, seed=-1, lr=0.01, weight_decay=5e-4, dropout=0.5, print_progress=True):
         self.t = time.time()
         self.lr = lr
         self.weight_decay = weight_decay
         self.epochs = epochs
+        self.print_progress = print_progress
 
         # config device
         if torch.cuda.is_available():
@@ -32,51 +32,58 @@ class AugM_GCN(object):
             print ('You are using CPU')
             self.device = torch.device('cpu')
         
-        # # modify the input adj matrix
-        # adj = self.pred_adj(adj, A_pred, rm, add)
-        
+        # modify the input adj matrix
+        adj = self.pred_adj(adj_orig, A_pred, rm, add)
         # load the data
         self.load_data(adj, features, labels, tvt_nids)
 
-        # create GCN model
+        #create GCN model
         self.model = GCN_model(self.features.size(1), # in_feats, from load_data
-                               hidden_dim, # hidden_size 
+                               hidden_size, # hidden_size 
                                self.n_classes, # n_classes, from load_data
                                num_layers, # n_layers
                                F.relu, #activation  
                                dropout) 
-        # move model to device
+        # move everything to device
         self.model.to(self.device)
 
     # Apply prediction to the original adj matrix   
-    def pred_adj(adj_orig, A_pred, remove_pct, add_pct):
+    def pred_adj(self, adj_orig, A_pred, remove_pct, add_pct):
         # if no edges are removed or added
         if remove_pct == 0 and add_pct == 0:
             return copy.deepcopy(adj_orig)
-        # the upper triangular portion of a adj_orig in sparse format
+        # #the upper triangular portion of a adj_orig in sparse format
         orig_upper = sp.triu(adj_orig, k = 1)       
         # number of nonzeros values in the upper triangular portion of the adj_orig
-        num_edges = orig_upper.nnz 
+        n_edges = orig_upper.nnz # 5278
         # the list of indices of nonzeros 
         edges = np.transpose(np.nonzero(orig_upper))
+        # print(np.nonzero(orig_upper))
+        # print(edges) # 5278
+        # print(len(A_pred)) # 2708
         if remove_pct:
-            num_remove = int(num_edges * remove_pct / 100)
+            n_remove = int(n_edges * remove_pct / 100)
             # nonzeros(existing edges)' indices' corresponding probabilities in edge probability matrix
-            existed_edge_probs = A_pred[edges.T[0], edges.T[1]]      
-            # indices of top num_remove small values in pos_probs, sort among existing edges' probabilities
-            indices_remove = np.argpartition(existed_edge_probs, num_remove)[:num_remove]          
-            # filter = [True, True, True, ....]
-            filter = np.ones(num_edges, dtype = bool)
-            filter[indices_remove] = False
-            # edges with indices same with False in filter are removed 
+            existed_edge_probs = A_pred[edges.T[0], edges.T[1]]
+            # print(A_pred)
+            # print(existed_edge_probs) # [0.9036223  0.9345134  0.9557134  ... 0.9410974  0.9351894  0.91263455]
+            # print(len(existed_edge_probs)) # 5278            
+            # # indices of top n_remove small values in pos_probs, sort among existing edges' probabilities
+            indices_of_removed = np.argpartition(existed_edge_probs, n_remove)[:n_remove] #[  96  387 1601 ... 2573 5213 3088]           
+            # print(len(indices_of_removed)) # 105
+            # # filter = [True, True, True, ....] , length = 5278
+            filter = np.ones(n_edges, dtype = bool)
+            # # filter[[  96  387 1601 ... 2573 5213 3088] ] = False
+            filter[indices_of_removed] = False
+            # # edges with indices same with False in filter are removed 
             edges_pred = edges[filter]
         else:
             edges_pred = edges
 
         if add_pct:
-            n_add = int(num_edges * add_pct / 100)
+            n_add = int(n_edges * add_pct / 100)
             # deep copy to avoid modifying A_pred
-            A_pred_add = copy.deepcopy(A_pred)  
+            A_pred_add = copy.deepcopy(A_pred) # 2708*2708
             # counter = np.count_nonzero(A_pred_add == 1)
             # make the probabilities of the lower half to be zero (including diagonal)
             A_pred_add = np.triu(A_pred_add, k = 1)
@@ -86,17 +93,18 @@ class AugM_GCN(object):
             all_probs = A_pred_add.reshape(-1)
             # print(len(all_probs)) # 2708^2 = 733264
             # list of indices of top n_add large values in all_probs , sort among all edges' probabilities (existing edges' probabilities are reset to 0)
-            indices_add = np.argpartition(all_probs, -n_add)[-n_add:] 
+            indices_of_added = np.argpartition(all_probs, -n_add)[-n_add:] # [ 378191 1624459  873677 ... 3004429 6821415 1241286]
+            # print(len(indices_of_added)) # 3008
 
             # filter = np.zeros(all_probs, dtype = bool)
             # # filter[[ 378191 1624459  873677 ... 3004429 6821415 1241286]] = True
-            # filter[indices_add] = True
+            # filter[indices_of_added] = True
             # # edges with indices same with True in filter are added 
             # edges_pred = edges[filter]       
 
             ## add the new edges' indices
             new_edges = []
-            for index in indices_add:
+            for index in indices_of_added:
                 i = int(index / A_pred_add.shape[0])
                 j = index % A_pred_add.shape[0]
                 new_edges.append([i, j])
@@ -120,7 +128,7 @@ class AugM_GCN(object):
         else:
             labels = torch.LongTensor(labels)
         self.labels = labels
-        # load node ids
+        #load node ids
         self.train_nid = tvt_nids[0]
         self.val_nid = tvt_nids[1]
         self.test_nid = tvt_nids[2]
@@ -136,8 +144,9 @@ class AugM_GCN(object):
             adj = sp.coo_matrix(adj)
         adj.setdiag(1)
         adj = sp.csr_matrix(adj)
+        self.adj = adj
         # Create a graph from a sp.sparse matrix
-        self.G = dgl.from_scipy(adj)
+        self.G = dgl.from_scipy(self.adj)
         # move the graph to device
         self.G = self.G.to(self.device)
         # normalization (D^-0.5)
@@ -153,8 +162,9 @@ class AugM_GCN(object):
             adj_eval = sp.coo_matrix(adj_eval)
         adj_eval.setdiag(1)
         adj_eval = sp.csr_matrix(adj_eval)
+        self.adj_eval = adj_eval
         # Create a graph from a sp.sparse matrix
-        self.G_eval = dgl.from_scipy(adj_eval)
+        self.G_eval = dgl.from_scipy(self.adj_eval)
         # move the graph to device
         self.G_eval = self.G_eval.to(self.device)
         # normalization (D^-0.5)
@@ -172,47 +182,34 @@ class AugM_GCN(object):
         # data
         features = self.features.to(self.device)
         labels = self.labels.to(self.device)
-
-        # # normalization by square root of src degree
-        # features = features * self.G.ndata['norm']
-        # self.G.ndata['h'] = features
-        # self.G_eval.ndata['h'] = features
-        # self.G.update_all(fn.copy_src(src='h', out='m'), fn.sum(msg='m', out='h'))
-        # self.G_eval.update_all(fn.copy_src(src='h', out='m'), fn.sum(msg='m', out='h'))
-        # features = self.G.ndata.pop('h')
-        # features_eval = self.G_eval.ndata.pop('h')
-        # # normalization by square root of dst degree
-        # features = features * self.G.ndata['norm']
-        # features_eval = features_eval * self.G.ndata['norm']
-
-        # initialize best accuracy
+        # initialize the best 
         best_vali_acc = 0.0
         best_logits = None
         for epoch in range(self.epochs):
             # set the model in train mode
             self.model.train()
             logits = self.model(self.G, features)
-            # losses & backpropogation
-            loss = nc_criterion(logits[self.train_nid], labels[self.train_nid])
+            # losses
+            l = nc_criterion(logits[self.train_nid], labels[self.train_nid])
             optimizer.zero_grad()
-            loss.backward()
+            l.backward()
             optimizer.step()
-
             # validate with original graph
             self.model.eval()
             with torch.no_grad():
                 logits_eval = self.model(self.G_eval, features).detach().cpu()
-            vali_acc = self.Eval_node_classification(logits_eval[self.val_nid], labels[self.val_nid].cpu())    
-            print(f'Epoch [{epoch+1}/{self.epochs}]: loss: {loss:.4f}, vali acc: {vali_acc:.4f}')
+            vali_acc = self.eval_node_cls(logits_eval[self.val_nid], labels[self.val_nid].cpu())
+            if self.print_progress:
+                print('Epoch [{:2}/{}]: loss: {:.4f}, vali acc: {:.4f}'.format(epoch+1, self.epochs, l.item(), vali_acc))
             # when new best validate accuracy appears for validate nodes, evaluate the test nodes  
             if vali_acc > best_vali_acc:
                 best_vali_acc = vali_acc
                 best_logits = logits_eval
-                test_acc = self.Eval_node_classification(logits_eval[self.test_nid], labels[self.test_nid].cpu())
-                # test_acc = f1_score(labels[self.test_nid].cpu(), torch.argmax(logits_eval[self.test_nid], dim=1), average = 'micro')
-                print(f'    Best validation updated, test acc: {test_acc:.4f}')
-        print(f'Final test results: acc: {test_acc:.4f}')
-        # clear cache
+                test_acc = self.eval_node_cls(logits_eval[self.test_nid], labels[self.test_nid].cpu())
+                if self.print_progress:
+                    print(f'    Best validation updated, test acc: {test_acc:.4f}')
+        if self.print_progress:
+            print(f'Final test results: acc: {test_acc:.4f}')
         del self.model, features, labels, self.G
         torch.cuda.empty_cache()
         gc.collect()
@@ -220,12 +217,12 @@ class AugM_GCN(object):
         return test_acc, best_vali_acc, best_logits, t
 
     # evaluate the accuracy with micro_f1
-    def Eval_node_classification(self, logits, labels):
+    def eval_node_cls(self, logits, labels):
         if len(labels.size()) == 2:
             preds = torch.round(torch.sigmoid(logits))
         else:
             preds = torch.argmax(logits, dim=1)
-        micro_f1 = f1_score(y_true = labels, y_pred = preds, average='micro')
+        micro_f1 = f1_score(labels, preds, average='micro')
         return micro_f1
 
 # Simple GCN layer from https://arxiv.org/abs/1609.02907
@@ -243,16 +240,15 @@ class GCNLayer(nn.Module):
         nn.init.xavier_uniform_(self.weight)
         nn.init.constant_(self.bias, 0.001)                                                           
 
-    def forward(self, adj, h):       
+    def forward(self, adj, h):
+        h = torch.mm(h, self.weight)
         # normalization by square root of src degree
         h = h * adj.ndata['norm']
         adj.ndata['h'] = h
         adj.update_all(fn.copy_src(src='h', out='m'), fn.sum(msg='m', out='h'))
         h = adj.ndata.pop('h')
         # normalization by square root of dst degree
-        h = h * adj.ndata['norm']
-
-        h = torch.mm(h, self.weight)    
+        h = h * adj.ndata['norm']       
         # bias
         if self.bias is not None:
             h = h + self.bias
