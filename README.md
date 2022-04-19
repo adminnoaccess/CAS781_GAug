@@ -77,5 +77,6 @@ will also train the node classification and the edge prediction networks within
 
 ### 2.train_GAugM.py
 
-Description: Simply, this code load the 'CORA' dataset (you can change the file name to load different dataset.) The default training & testing set is 50*200 epochs.
-In each epoch
+Description: Simply, this code load the 'CORA' dataset (you can change the file name to load different dataset.) The default training & testing set is 50*200 epochs - 
+AugM_GCN in GCN_AugM.py is called 50 times, and in each call it trains the network 200 time. The adj input to AugM_GCN is modified(preprocessed) by pred_adj function.
+To run the file, input python train_GAugM.py --dataset cora --gpu 0 in command line. gpu 0 uses gpu and gpu -1 uses cpu. You can also input different learning rate and epochs(default learning rate is 0.01 and default epochs is 200). 
