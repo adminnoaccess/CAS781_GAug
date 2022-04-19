@@ -7,6 +7,10 @@ import torch
 from sklearn.metrics import f1_score
 import time
 
+import warnings
+import matplotlib.pyplot as plt
+warnings.simplefilter('ignore')
+
 if __name__ == "__main__":
 
 
@@ -39,5 +43,12 @@ if __name__ == "__main__":
         end_time = time.time()
         
         print(f'F1: {np.mean(accs):.6f}, std: {np.std(accs):.6f}')
-        print('Time Eplased in Seconds: '+str(end_time=start_time))
+        print('Time Eplased in Seconds: ', str(end_time-start_time))
+
+    # pics
+    plt.plot(accs, label='GAugO: F1 of each test')
+    plt.xlabel('Test')  
+    plt.legend()
+    plt.show()
+    plt.savefig('GAugO_test.png')
 
