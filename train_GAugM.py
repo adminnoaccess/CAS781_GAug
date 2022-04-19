@@ -4,14 +4,13 @@ import argparse
 import numpy as np
 import scipy.sparse as sp
 import torch
-
 from models.GCN_AugM import *
 from models.VGAE_edge_prob import *
 import warnings
 import matplotlib.pyplot as plt
 warnings.simplefilter('ignore')
 
-parser = argparse.ArgumentParser(description = 'single')
+parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default = 'cora')
 parser.add_argument('--epochs', type=int, default = 100)
 parser.add_argument('--gpu', type=str, default = '0')
