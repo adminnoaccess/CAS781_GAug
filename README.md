@@ -4,7 +4,7 @@
 ### Member: 
 ### Jongjun Park: VGAE
 ### Liuyin Shi: GAugO with GCN networks
-### Yihang Xu: GAigM with GCN networks
+### Yihang Xu: GAugM with GCN networks
 ### Paper: Data Augmentation for Graph Neural Networks (https://arxiv.org/pdf/2006.06830.pdf)
 
 ### Dataset
