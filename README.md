@@ -52,6 +52,12 @@ we also have 2 separate node classfication network and edge prediction network.
  Describption: this is the master class for encapsulating the Model class accoriding to the pytorch 
  practice. Here all the model parameteres are intialized and the model workflow is constructed
 
+## 2. model/GCN_AugM.py
+Description: This is the main file for the AugM model. In the master GAugM class, it builds the GCN network for node classification task and train and test the model. The edge probability task is preprocessed in test file. It also contains GCN layer class adn GCN model class.
+### (1) AugM_GCN class
+
+
+###
  
 # Test file
 ### 1. test_ep.py
