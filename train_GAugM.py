@@ -7,6 +7,9 @@ import torch
 
 from models.GCN_AugM import *
 from models.VGAE_edge_prob import *
+import warnings
+import matplotlib.pyplot as plt
+warnings.simplefilter('ignore')
 
 parser = argparse.ArgumentParser(description = 'single')
 parser.add_argument('--dataset', type=str, default = 'cora')
@@ -73,3 +76,10 @@ if __name__ == "__main__":
         print (f'Range {counter} finished')
         # print(times)
     print(f'\nF1_micro: mean test acc: {np.mean(accs):.4f}, std test acc: {np.std(accs):.4f}, best vali acc: {np.max(best_vali_accs):.4f}\ntotal time for this run: {np.sum(times):.3f}s, average time for every {args.epochs} epochs: {np.mean(times):.3f}s')
+    
+    # pics
+    plt.plot(accs, label='GAugM: F1 of each test')
+    plt.xlabel('Test')  
+    plt.legend()
+    plt.show()
+    plt.savefig('GAugM_test.png')
