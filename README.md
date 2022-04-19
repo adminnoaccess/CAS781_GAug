@@ -54,11 +54,13 @@ we also have 2 separate node classfication network and edge prediction network.
 
 ## 2. model/GCN_AugM.py
 Description: This is the main file for the AugM model. In the master GAugM class, it builds the GCN network for node classification task and train and test the model. The edge probability task is preprocessed in test file. It also contains GCN layer class adn GCN model class.
-### (1) AugM_GCN class
+### (1) GCN layer class
+Description:  This class construct simple GCN layer with reference to https://arxiv.org/abs/1609.02907
+### (2) GCN model class
+Description: Thsi class construct GCN model with GCN layers.
+### (3) AugM_GCN class
+Description: This class contains init function to initialize parameters and construct the GCN network for node classification function; load_data function to load adj, features labels and node ids; pred_adj function to modify original adj based on edge probabilities; fit function to train and test the model.
 
-
-###
- 
 # Test file
 ### 1. test_ep.py
 
@@ -73,4 +75,7 @@ Description: This is the main file for the AugM model. In the master GAugM class
 	different dataset. we set the number of epochs to be 50, and for each epoch, the model (GCN_AugO.py)
 will also train the node classification and the edge prediction networks within
 
+### 2.train_GAugM.py
 
+Description: Simply, this code load the 'CORA' dataset (you can change the file name to load different dataset.) The default training & testing set is 50*200 epochs.
+In each epoch
