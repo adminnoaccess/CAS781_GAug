@@ -7,6 +7,11 @@
 ### Yihang Xu: GAugM with GCN networks
 ### Paper: Data Augmentation for Graph Neural Networks (https://arxiv.org/pdf/2006.06830.pdf)
 
+### Test files (descriptions are stated at last)
+# $ python3 test_ep.py
+# $ python3 train_GAugM.py --dataset cora --gpu 0 
+# $ python3 train_GAugO.py
+
 ### Dataset
 The dataset is saved in 'pickle' python binary type. 
 
